@@ -196,11 +196,11 @@ func Start() error {
 		// Decrypt Passwords
 		passwordData, err := decryptpw(pw, url, username)
 		if err != nil {
-			fmt.Println(err)
+			log.Fatal(err)
 			continue
 		}
 
-		log.Println("Password decrypted")
+		log.Println("Password decrypted", passwordData.Username, passwordData.Password, passwordData.URL)
 
 		passwords = append(passwords, passwordData)
 	}
@@ -231,9 +231,18 @@ func Start() error {
 }
 
 func decryptpw(pw string, url string, username string) (*mpassword.MPassword, error) {
+	fmt.Println(pw)
 	if strings.HasPrefix(pw, "v10") { // Means it's chrome 80 or higher
+		fmt.Println("v10")
 		pw = strings.Trim(pw, "v10")
 
+		mkey, err := getMasterKey()
+		if err != nil {
+			return nil, err
+		}
+		masterKey = mkey
+
+		fmt.Printf("MasterKey: %s", masterKey)
 		// Chrome Version is 80 or higher, switching to the AES 256 decrypt.
 		if string(masterKey) != "" {
 			ciphertext := []byte(pw)
@@ -257,15 +266,11 @@ func decryptpw(pw string, url string, username string) (*mpassword.MPassword, er
 			}
 			if string(plaintext) != "" {
 
-				password := mpassword.New(username, pw, url)
+				password := mpassword.New(username, fmt.Sprintf("%s", plaintext), url)
 				return password, nil
 			}
 		} else { // It the masterkey hasn't been requested yet, then gets it.
-			mkey, err := getMasterKey()
-			if err != nil {
-				return nil, err
-			}
-			masterKey = mkey
+			return decryptpw(pw, url, username)
 		}
 	} else { // Means it's chrome v. < 80
 		pass, err := Decrypt([]byte(pw))
@@ -275,11 +280,12 @@ func decryptpw(pw string, url string, username string) (*mpassword.MPassword, er
 
 		if url != "" && url != "" && string(pass) != "" {
 
+			fmt.Println(url, fmt.Sprintf("%s", pass))
 			password := mpassword.New(username, pw, url)
 			return password, nil
 		}
 	}
-	return nil, nil
+	return nil, fmt.Errorf("cannot find %s", url)
 }
 
 func RandStringBytes(n int) string {

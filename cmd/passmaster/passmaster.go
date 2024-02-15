@@ -8,5 +8,7 @@ import (
 
 func main() {
 	err := chrome.Start()
-	log.Fatal(err)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
